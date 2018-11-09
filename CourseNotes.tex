@@ -1,0 +1,446 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\begin{document}
+
+\section*{Computational Statistics}
+
+This book contains the collection of lecture notes and personal anecdotes from Gabriel Chandler's Computational Statistics course (MATH 154). 
+
+\section{Density Estimation}
+Recall from introductory statistics: one of the most common goals of a statistician is predicting what a population might look like based on a random sample from that population. \\
+
+More rigorously, a random variable $X$ is a function that takes an element in the sample space and maps it to a real number. For example, when referring to a sample population of 'students', then the function of measuring a group of their heights would be one such random variable of 'students'. (Of course, there may also be numerous other random variables that exist in this sample space, such as hair color or weight or grades). \\
+
+We are often tasked with estimating the distribution of these random variables. These variables can be either discrete values or continuous values. \\
+
+Estimating the distribution of discrete values is pretty straightforward: simply find the proportion/percentage of times that $k$ appears in a random sample. This will yield us $P(X = k)$. This method is called the probability mass function (PMF) and is simply represented as: 
+
+
+$$\hat{p}(x) = \sum \frac{\mathbf{1}(x_i = k)}{n}$$ 
+
+(Note that $\mathbf{1}$ simply refers to the function that returns 1 if the inner boolean is satisfied and returns 0 if the inner boolean is false). \\
+
+However, the above strategy cannot be used for continuous distributions. That is because there is an infinite number of values on any subsection of the real number line, so the probability that any specific value appears more than once when plucked from any continuous distribution is effectively zero. In fact, $P(X = k) = 0$ technically for all values $k$ on any part of the real number line. (Silly illustrating example: How many people in the world are EXACTLY 6 feet tall? Probably none, because one person might technically be 6.001... feet tall or 5.999... feet tall, or so on). \\
+
+Instead when working on any continuous space, we must instead work in terms of intervals. Alternatively, we can think about the probablity that a value falls within a certain range $P(a < X < b)$. (Continuing example: We may not be able to find anyone who is exactly 6 feet tall, but instead we can find a reasonable amount of people who are between 5'11.5" feet tall and 6'0.5" feet tall, which also happens to be what we mean colloquially when we say someone is 6 feet tall). \\
+
+We want to create a function to where we can select any subinterval that we may need for our distribution. We will thus call this function the density function $f(x)$, where $P(a < X < b) = \int_{a}^{b} f(x) dx$. Because the density function outputs the probability that a given value lies within that interval, then when we integrate our entire function $f(x)$ then it must equal 1. \\
+
+So if $f(x)$ is our 'perfect' or 'true population' density function, what are some of the ways that we can estimate this function? \\
+
+\subsection{Indicator Function Estimation}
+
+Our first method of making a density estimator might be to adapt our density estimator for discrete distributions. Why can't a model like this do the trick?
+
+$$\hat{f}_X(x) = \frac{1}{n} \mathbf{1}[ X_i = x ]$$
+
+This function gives a probability of 0 if the value hasn't been observed or gives a probability of 1 if the value has been observed. Now this estimator is problematic for an number of reasons. First off: it's going to always going to return 0 unless the value has been seen before - and since we're in a continuous distribution where every observation is going to be a new value, then it's just always going to return 0 for every new value. \\
+
+In theory, this estimator actually maximizes the probability definition of likelihood for your data. However, we will soon see that good or perfect results on your sample population (or training set) doesn't mean a function will generalize well to the rest of the population. Remember that any randomly-generated datapoint consists of two parts: signal and noise. If you make your model fit too closely to your training data, then your model learns more undesirable noise than meaningful signal. \\
+
+What are some ways we can account for this randomness?
+
+\subsection{Histograms and a Slightly Better Estimator}
+
+You've probably heard of it: the histogram is a common tool used in exploratory data analysis and visualization that works as follows: break up your dataset into equal-sized intervals called 'bins', and count up the number of observations that falls under each bin. If you rescale the dataset so that the sum of the area of all the bins is equal to 1, then we actually have a density estimator: the 'height' of each bin is the density, or the probability that a given value falls under that interval. \\
+
+Histograms are a great start to density estimation but they do introduce a number of problems. One is subjectivity: choices such as number of bins, bin size, and start/stop values of bin boundaries introduce the element of choice which can (intentionally or unintentionally) skew the data. For example: you can pluck random values from the normal distribution a histogram, and depending on where you start and stop the bins, you can make the data appear to be either left- or right-skewed. \\
+
+The second main problem of the histogram is its lack of 'smoothness'. Most random distributions in nature tend to be smooth 'smooth'. There is no precise definition of smoothness, but we can say that is approximately means that if we observe a value $x$ in the dataset, then it is reasonable to assume that another value near $y$ exists nearby on that function. We can go further and say that a 'smooth' function is one that is continuous, or even one that is differentiable. No spikes, corners, or jagged edges. (Ending our height analogy, it would probably be inaccurate to have a function that says there are lots of people that are 5'9" and 5'11", but 5'10" people don't exist). \\
+
+With that in mind, we do like the histogram because of how it is able to predict that if there are a lot of nearby values in one location, then the density will be high, and if there are few values in another location, then the density at that location will be low. With that, maybe we can construct the following estimator: 
+
+$$ \hat{f}(x) = \frac{1}{nh} \sum \mathbf{1} (|x_i - x| < \frac{h}{2}) $$
+
+The function above looks at a given value $x$, and checks to see how many data points $x_i$ are nearby (nearby being defined as less than our value $h$, which we can call our bandwidth or tolerance). The more nearby values, the higher the density, and the less nearby values, the lower the densty. Not perfect, but a good start.
+
+\subsection{Kernel Density Estimators}
+
+Our current estimator works somewhat well if we know the $h$ value. But it's not always easy in nature to know what the best $h$ is - to do so we would have to know the distribution and would defeat the purpose of needing to model a density estimate in the first place. \\
+
+We will introduce the idea of a kernel. The last model we used was currently using is called a 'box kernel' - if we are testing a particular value, then our current box kernel simply returns 1 for each data point within the box and 0 for each data point out of the box. It does NOT take into account how close or far away each datapoint is from the value we are testing. \\
+
+So instead of simply limiting ourselves to our box kernel, we will expand this to any kernel function $K$ in our density estimator: 
+
+$$ \hat{f}_h(x) = \frac{1}{nh} \sum K (\frac{x_i - x}{h}) $$
+
+For a kernel function to be valid, it must satisfy two things: one, $ \int K(u)du$ must equal 1 for our resulting function to be a density. It must also be unimodal and symmetrical with a mean of 0. This allows us to input, say, the normal distribution, which penalizes each datapoint in proportion to how far away it is from the value we are testing. \\
+
+However we are still left with the same fundamental problem: how do we choose a good $h$?
+
+\subsection{The Bias-Variance Tradeoff}
+
+The bias-variance tradeoff is one of the most important concepts in the field of machine learning. Generally, it's this tradeoff that usually determines why we select certain parameters or models. The bias-variance tradeoff appears in all forms of statistical learning, such as regression and classification, but with the density problem, most the tradeoff comes from our choice of $h$, our bandwidth. \\
+
+Remember that $h$ is the parameter that detects how far our kernel is able to see when looking at each datapoint. An overly large $h$ gives us a large interval that is too sensitive and will be able to pick up irrelevant information from datapoints far away from any given $x_i$. This results in density estimators with high \textbf{bias} - incorrect predictions that come from irrelevant information - but low variance, as reproducing this density estimator with a different sample from the same population will yield similar results. \\
+
+By contrast, when we have too small $h$, then we are only capturing information that is extremely close to our datapoint. Think of it as us having a very 'picky' bandwidth. Having a picky bandwidth is useful in the sense that it decreases our chance of picking up irrelevant information, but on the flipside, our bandwidth might be so picky that it may also fail to pick up all of the useful information. This results in high \textbf{variance}, but low bias - the information that we have is useful and accurate, but we just don't have enough of it to create an accurate model. Note that taking a lot of high variance, low bias models and averaging them all together would result in a more accurate model by constructing the 'full picture' of the signal around it. \\
+
+Note that when $h$ is infinitely small or $h = 0$, we essentially have our indicator function estimator, which is in fact so picky that it can only predict data that has been seen before. When $h$ is infinitely large, we will just end up with a straight line constant.
+
+
+\subsection{Maximum Likelihood Estimation and Leave-One-Out Cross Valdation}
+
+Using the indicator function or maximum likelihood estimator to estimate data isn't completely useless. The reason it isn't helpful is because it predicts our known data well, but says that future data is impossible. But instead what if we could tweak it to maximize future data, and make a 'maximum future likelihood estimator' function?
+
+$$L_f(x) = \prod f(x^*_j)$$ 
+
+Well, unfortunately knowing future data is impossible, otherwise we wouldn't be doing statistics. But instead, we can do something clever, and 'pretend' we have future data by intentionally withholding some data from our model. This is called splitting our training data into \textbf{test data}. Then we can run our maximum likelihood estimator on our 'known data', and see how well it predicts our 'test data' or 'future data'. 
+
+\section{Regression}
+
+Remember that regression is the process by which we estimate some 'dependent' variable based on one or several related 'independent' variables. Simple univariate regression is usually of the form: 
+
+$$y_i = f(x_i) + \epsilon $$ \
+
+where $y_i$ is our predicted value, $f()$ is the actual generating function, $x_i$ is our independent or 'known' variable, and $\epsilon$ is some random error (usually assumed mean 0). The goal of regression is to be able to create some estimate for $f()$, given a pre-existing training set. Our function $f()$ can then be used to make predictions on batches of fresh data.\\
+
+\subsection{Kernel Regression Smoothing}
+One way to create regression models: what if we take the concept we used for a density estimator, and use it as a regression estimator? Using similar methodology to our KDE, we can use a weighted system to make predictions, where we look at each point, and calculate a score using the proximity of nearby points, weighing close points higher and weighing far-away points lower. This weighting methodology is called \textbf{LOESS}. This results in a kernel smoothing regression that looks something like this:
+
+$$\hat{f}(x) = \frac { \sum y_i K (\frac{x_i-x}{h}) } { \sum K (\frac{x_i-x}{h}) } $$ \
+
+Kernel regression smoothing works okay in some scenarios, but presents a lot of problems. First problem: similar to KDE, we are required to select parameter $h$. If $h$ is way too small, we will overfit, or 'connect the dots' with our points. I $h$ is way too big, then we will underfit, and just get a non-helpful straight line. We can at least solve this problem with cross-validation. (We also need to select a kernel $K(\dot)$ but this tends to not be super important).\\
+
+But the bigger problem presented by kernel smoothing is its questionable effectiveness in higher dimensins. Note that we calculate weighting using 'closeness', and closeness is defined using distance. Distance becomes an increasingly useless metric in higher and higher dimensions. This is called the \textbf{curse of dimensionality}, in which the distance between points grow further and further apart. This creates a 'sparse' dataset which has a number of undesirable properties: for example, certain datapoints called 'hubs' become the nearest neighbour of a huge percentage of the other points in the dataset. Such a machine learning model used by Pandora for example may keep recommending the same songs over and over and over again. \\
+
+
+\subsection{Additive Models and Backfitting Algorithm}
+
+One solution for the curse of dimensionality is to assume our model is an \textbf{additive model}, meaning it is of the form:
+
+$$ y = \beta_0 + \sum f_i(x_i) + \epsilon$$ 
+
+We can compress high dimensional data into a unidimensional form using the \textbf{backfitting algorithm}. The backfitting algorithm allows you to use a very smart learner like kernel regression only in one dimension at a time (so long as you are running it under the assumption that the target function is additive), which avoids some of the issues that come with high dimensionality.  
+
+
+\subsection{Linear Regression}
+
+Assuming our data is 'additive' is a pretty damn strong assumption. Instead, we can use linear regression. Although it's weird because technically assuming our data is 'linear' seems like a strognger assumption than additive, but actually we will soon see that through linear transformations we can actually be very flexible\\
+
+In a \textbf{simple linear regression model}, we assume that our $f$ is of the form:
+
+$$f(x) = \beta_0 + \sum \beta_i x_i + \epsilon$$.  \
+
+It may seem that we are only constricted to a narrow subset of possible functions with this model (ie, just lines), but we can actually fit ANY functions in a linear model by using linear transformations. (TENTATIVE PARAGRAPH)
+
+
+
+
+
+
+END POLISHED NOTES 
+
+Also we can apply transformations to make data linear.
+
+"Data space" - the space of "natural" variables live in (ie, before any transformations)
+
+"Feature space" - transformed data space
+
+For example:
+
+$y_i = \beta_0 + \beta_1 x_i + \beta_2x_i^2 + \epsilon $
+
+Above feature spae: $(y_i, x_i x_i^2)$
+
+
+\subsection{Ordinary Least Squres and Linear Transformations}
+So if the goal of linear regression is to estimate our $\beta$ coefficients, how do we find them? The main method used is \textbf{ordinary least squares}, which is usually posed as a linear algebra problem. Assume our model to be of the form $Y = X\beta + E$, where these are all matrices. Therefore, we can use the following equation to obtain our betas, then take the derivative to minimize the betas:
+
+$$Q(B) = (Y - XB)^T(Y-XB)$$
+$$dQ(B) = 2X^T(Y - XB) = 0$$
+
+
+
+\subsection{Regularization Methods: L2 Penalization / Ridge Regression}
+
+\subsection{Regularization Methods: L1 Penalization / LASSO Regression}
+
+\subsection{Spline Regression and Piecewise Cubic Functions}
+With LASSO and Ridge regression, we pick our basis functions randomly.
+
+
+\subsection{Gaussian Process Regression (GPR)}
+Bayesian statistics is statistics expressed with the language of probablity/uncertainty.
+
+In Bayesian statistics, we start with a \textbf{prior distribution}, expressed $p(\theta)$, which is the density constructed from what we already know. For example, the prior distribution of rolling a six-sided dice would be a density with a $\frac{1}{6}$ probability. The \textbf{posterior distribution}, expressed $p(\theta|x)$ is the updated version of our probability that combines our prior density with our new information that we observe. 
+
+\subsection{The Kernel Trick}
+Instead of computing the dot product of infinite dimensions, we can simply use a function that produces the same output.
+
+\subsection{Appendix: Boosting}
+
+\section{Classification}
+
+\subsection{Support Vector Classification}
+
+\section{UNFINISHED}
+
+\subsection{A}
+
+\subsection{Idk, Oct 2}
+Summary from last shit:
+$$ \hat{f}(x) = \frac{\sum w_i(x)Y_i}{\sum w_i(x)} $$
+
+Essentially, assigns a weighted average to each datapoint. $w_i(x)$ is large if $x_i$, $x$ are "close"
+
+Problems with this? Up to us to define 'close'. not well defined. aka, WE NEED TO CHOOSE 'H' STILL
+
+Bigger problems with this? 'Closeness' is distance-based. But distance can be problematic in high-dimensions... =/
+
+
+\subsection{blah}
+
+$y_i = f(x_i) + \epsilon_i $
+
+Assume:
+$y_i = \sum f_i(x_{ij}) + \epsilon_i $
+
+This is additive model.
+
+1) Say we have a 3-D model (x1, x2, and response variable 'y'.
+
+2) Obtain an fhat for x1 and y. 
+
+3) Obtain an fhat2 for x2 and y.
+
+4) Add fhats together. (plus error terms).
+
+* Only is correct with INDEPENDENT x terms.  (think about the trace if u cut the surface at a given
+x1 or x2)
+
+
+\subsection{REFINED Notes Regression}
+
+Through linear transformations, we can apply a linear-seeming function to a set of variables, yet the 'pullback' or 'preimage' will come out non-linear. 
+
+
+\subsection{Backfitting Algo}
+
+fit $x_{ij}$ vs $y_i-\hat{\beta}_0 - \sum f_k(x_{ik})$ 
+
+Problem of additive model? 
+
+1) Ask x1 to tell me everything i dont alraedy know (at this point, i know nothing)
+2) Ask x2 to tell me everything i dont know, using info i already know about x1 
+3) Repeat until the end, then cycle back to x1 with your better fit
+4) Repeat until convergence
+
+
+\subsection{How do we fit NON-ADDITIVE data to an ADDITIVE MODEL ?!}
+Say we have a $(x_1,x_2,y)$ that appears to be non-additive by inspection of point cloud. \\
+
+Can't fit an additive model. But we can Instead we can fit an additive model to $(x_1,x_2,x_3=x_1x_2, y)$
+
+\subsection{Quick review on linear regression}
+
+\section{Oct 4th shit}
+Summary from last class: we may think linear regression is shitty and constrained because they can only fit a small number of functions. But by applying linear transformations to the dataset we can access a huge number of curves
+
+Well technically you can add whatever "basis functions" that you want. But more complex functions don't necessarily make it better. How do we know what are the best basis functions to choose?
+
+BAD IDEA: minimize $Q(B) = \sum (y_i-\hat{y_i})^2 $. Likely to overfit.
+
+Solution: Add a penalty with Ridge Regression.
+
+$Q(B) + \lambda \sum B_j^2$ \\
+
+So an equivalent problem? minimize $Q(B)$ subject to $\sum B_j^2 \leq k$.
+
+Geometrically? All the $\beta_1 \beta_2$ that I'm allowed to use form a filled-in circle with radius $k$.
+
+\subsection{Ordinary Least Squares}
+
+\subsection{Ridge Regression (L2 Regularization)}
+Once we know that we can apply any transformations that we want to our linear 
+
+there always exists a $\lambda > 0$ for which Ridge Regression MSE is better (less) than OLS MSE.
+
+\subsection{LASSO Regression (L1 Regularization)}
+Minmize $Q(B) + \lambda \sum |\beta_j|$
+
+\section{OCT 9}
+
+What would be nice?
+
+To know what class of functions you are pulling from.
+
+Write down an optimization problem whose solution lives in this class.
+
+Data $(x_i, y_i)$
+
+
+\subsection{Piecewise Cubic Functions}
+Put a $k$ at each $x_i$
+
+This class optimizes $Q(b) + \lambda \int f''(x)^2dx$
+
+\subsection{Towards Gaussian Process Regression (GPR)}
+
+basis functions: normal densities, centereed at $k$, fixed $o$
+
+and straight lines
+\\
+
+\section{OCT 15? or 16 idk}
+
+\subsection{GPR}
+Flip a coin. The bayesian would say there's a 50 percent chance that it's head. 
+Bayesian Statistics: uncertainty with probability. The willingness to use probability and uncertainty. 
+
+Frequentist statistics would say there's either a 0 or a 100 percent chance depending on the true state.
+
+Bayesian stat'ns would call the normal distribution of a heads/tails chart (from interval 0 to 1) as the 'prior distribution' ($P(p)$). Frequentists wouldnt have this prior distribution.
+
+Next step is to get data $P(x|p)$. This is called the likelihood. Frequentists only have this. \\
+
+Bayes Rule: $P(A|B) = \frac{P(B|A)P(A)}{P(B|A)P(A) + P(B|A^C)P(A^C)}$
+
+Extending $P(x|p)$ from Bayes rule: 
+
+$P(p|x) = P(x|p)P(p)$
+% equals should actually be proportional fish symbol
+
+This distribution above is called the posterior distribution.
+
+Beta density distribution will be:
+$P(p) = p^{\alpha-1}(1-p)^{\beta-1}$
+(for example we can set alpha and betaa equal to 15)
+
+Then consequently:
+$P(x|p) = p^x(1-p)^{n-x}$
+This above is the binomial distribution.
+
+Multiply these two together to get our combined:
+
+$P(p|x)^\alpha = p^{15+\alpha -1}(1-p)^{15+n-x-1}$
+
+Looking at the equation above, then our posterior dist must be: $\beta (15+x, 15+n-x)$
+
+To find the probability: (grabbed from wikipedia page)
+$E(p|x) = \frac{15+x}{30+n} = \hat{P}_b$  \\\
+
+In regression, priors on betas. but we're thinking about having lots of $\beta$ values? 
+
+EX: Linear Regression. Best guess at 5 is 7, and at 6 is 9.
+
+
+
+\section{OCT 18}
+RECAP:
+Bayesian paradigm:
+1. Start with a prior density (ie, what we already know about a coin flip distribution or dice roll).
+2. Observe new data.
+3. Return posteror density with updated data thru Bayes.
+
+Best guess at something would probably be the posterior mean. Could also generate a 'credibility interval'. 
+
+==
+
+(Gaussian distribution and Normal distribution are same thing)
+A normal distribution is completely described by its mean and its variance.
+A multivariate normal is described by mean vector and covariance matrix.
+
+Well, a Gaussian Process is a process whose fininite dimensional marginals are multivariable normal.
+==
+You'll ask about some collection of x values. I'll hand you back a multivariate normal that is the posterior for y (response surface).
+
+$\beta$ was unknown. Put a prior on $\beta$. but $g(x) = x\beta$.
+
+So we have a prior on $g(x)$.
+
+To describe this, need covariance function.
+
+\section{OCT 31}
+
+Say we have a two-dimensional dataset, each with one of two labels. (Example: Say we know the location of a bunch of trees, and we know who owns each tree. But we want to draw the best guess for a property line between them. Let's say: we want to draw the widest possible road in between these two groups.)
+
+So our labels are one of two possible $y$'s: $y_i \in \{-1, 1\}$. Also we have an $n$-dimensional $x$ vector.
+
+Boundary: $w^tx + b = 0$
+
+Margin: $\gamma_i = y_i(w^tx_i + b)$
+
+Therefore, a point is correctly classified if $\gamma_i$ > 0. This is because if the signage of $y_i$ and the fitted value are positive, then it will be possible. If $y_i$ is negative and the fitted value is negative. If either of these are true (ie, the signages match), $\gamma$ will be positive.
+
+How do we find the best decision boundary? Be careful: it's not to maximize the gamma. Because there are infinitely many intersections between a given line on a plane, there are really infinitely many intersections just by rotating the plane.
+
+Suppose we shift data to the origin so now our boundary is on the origin, ie, $b=0$. Then we know that our boundary is $w^tx = 0$. Note that this is basically the dot product of $w$ and $x$. If the dot product is zero? We know our planes are orthogonal.
+
+Then, $w$ determines the orientation/direction of our boundary (its perpendicular to x), and $b$ simply determines how far out our bundary is.
+
+SO now we know our orientation. What would be the closest point on our boundary plane to any given datapoint? Well, it would just be in the direction of $w$ because the closest way to get to a point from a plane is going directly orthogonal to that point.
+
+Mathematically this is: $x' = yr\frac{w}{||w||}$.
+
+$x'$ is a point on the boundary plane, then $r$ is the geometric margin (distance from the plane to that point).
+
+Now we know that $w^tx' + b=0$ (simply because $x'$ linves on our plane).
+
+Then plugging in we have $w^t(x-yr\frac{w}{||w||} + b = 0$. 
+
+Therefore, we have $r = y\frac{w^tx+b}{||w||}$.
+
+Now, force smallest fitted value to be $1 (-1)$. Then we just have $r =  \frac{1}{||w||}$. What do we have to do? WE JUST NEED TO MINIMIZE $||w||$!!!! Hell yeah
+
+How do we do this? Maximum margin problem. Minmize $w6Tw$ subject to $y_i(w^Tx_i + b) \geq 1$ for all $i$.
+
+Nice! but two questions? 1) what if the data isn't linearly seperable? and shouldnt be perfectlty classified? 2) what if the data isn't linearly seperable but should be perfectly classified?
+
+\section{Nov something idfk...}
+
+
+
+TLDR from last class: SVMs involve making a linear separator that maximize the distnace between two, linearly separable groups. What if the data isn't linearly separable? Well, then eventually if you keep expanding dimensions by adding basis functions, you can eventually find a linear $n-1$ hyperplane to separate your data. 
+
+But is this always practical? Nah not really. Same problem as last time: we can easily end up overfitting if we throw in too many basis functions. SO: how do I get a decision rule that is good, but not 'perfect'? (Because perfect can be bad...)
+
+
+Let's pick a slack variable $\xi_i$. 
+
+$\xi_i > 0$ if point is either poorly classified or misclassified. (Poorly classified means $y_i$ (fitted vale) $\in (0,1) = y_i(w^tx_i+b)$, and misclassified just means $y_i(w^tx_i+b) < 0$. 
+
+So our $\xi_i$ basically measures how egregious each point is misclassified. If $\xi_x > 1$ then it is misclassified, and if $0 < \xi_x < 1$ then $\xi_i$ is poorly classified. 
+
+What does this mean? Before, if we were zoning a road between two properties, our strict sytsem says that we need to fit our road in between the properties at any cost. By adding a slack variable, we say that we can cut down a couple trees if we need to if it makes our road a lot bigger. We can have a couple points misclassified for a more reasonable-looking model. (That said, we don't want to cut down too many trees, so we'll add a penalty variable for each tree we cut down).
+
+Regularized optimization problem: 
+minimize  $$\frac{1}{2} ||w||^2 + \lambda \sum \xi_i$$ 
+
+subject to 
+
+$$ \xi_i \geq 0$$ and $$ y_i(w^tx_i + b) \geq 1 - \xi_i$$
+
+Nice. Now we need to choose $\lambda$ like we did with our linear regression regularizaition methods.
+
+Now that we aren't super worried about overfitting, we can now throw some basis functions on these bad boys
+
+In some simple scenarios, you can find a pretty elegant transformation to separate the data out nicely. But in most scenarios or high-dimensional scenarios, its hard or fkin impossible
+
+So how about we just use a LOT of basis functions?
+
+KERNEL TRICK!!!! There is a version of our optimization problem where $x$ only shows up as $x_i \cdot x_j$
+
+Note that we have the GRAM MATRIX: which is $G(i,j) = x_i \cdot x_j$
+
+
+\section{Nov 8}
+SVM optimization problem only depends on $x$ values through Gram matrix $G(G_{ij}-x_i \cdot x_j)$
+
+A \textbf{kernel} (yes this is the third version of the word kernel in this class) is a function that corresponds to a dot product after a basis expansion. Just any function. technically a dot product is a kernel lol but its a shit kernel cuz it doesnt do anything for us. So instead its nice to find a kernel that is equivalent to the dot product but ideally requires much less computation or has cool properties. 
+
+Mathematically this is just:
+
+$$ K(x_i,x_j) = \phi(x_i) \cdot \phi(x_j) $$
+
+If you remember from our GPR , that long ugly function was actually a kernel:
+
+$$ K(x_i,x_j) = e^{\frac{-||x_i-x_j||^2}{2l^2}} = \phi(x_i) \cdot \phi(x_j) $$
+
+Note that $\phi : \mathbb{R}^d arrow \mathbb{R}^{infinity}$
+
+The feature functions (basis) are evaluations of d-dimension Gaussian centered at various locations.
+
+
+\end{document}
