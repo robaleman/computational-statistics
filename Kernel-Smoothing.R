@@ -7,25 +7,33 @@ title: "Kernel Regression Smoother"
 # - Backfitting algorithm implementation for additive modeling
 # - Leave-one-out cross-validation scheme for selecting optimal bandwidth for kernel smoothers
   
+
+
+
+# Univariate kernel regression smoothing
+Kernel.Reg <- function(data, h) {
+  grid <- seq(min(data[,1]), max(data[,1]), len=100)
+  x <- data[,1]
+  y <- data[,2]
   
-# Univariate density estimator, with indicator function kernel
-Predict.Y <- function(x, h) {
-  for (i in 1:(nrow(data) - 1)) {
-    sum(data[,2] * dnorm(x - data[i,1] / h)) / sum(dnorm((x - data[i,1]) / h))
+  prediction <- c()
+  for (i in 1:length(grid)) {
+    prediction[i] <- sum(y * (dnorm((x - grid[i]) / h))) / sum(dnorm((x - grid[i] / h)))
   }
+  
+  return (list(x=grid, y=prediction))
 }
 
-# Demonstration for above
-h_grid <- seq(0, 1, 0.01)
+# testing
+xkcd <- read.csv("xkcd.csv")
+model <- Kernel.Reg(xkcd, 0.5)
+plot(model$x, model$y, col='blue')
+points(xkcd)
 
 
-# Leave-one-out cross-validation scheme
-Leave.One.Out <- function(x) {
-  return (TRUE)
-}
 
 "
-KERNEL REGRESSION 
+KERNEL SMOOTHING 
 One way to create regression models: what if we take the concept we used for a density estimator, and use it as a regression estimator? 
 Using similar methodology to KDE, we can use a weighted system to make predictions, where we look at each point, and calculate a score 
 using the proximity of nearby points, weighing close points higher and weighing far-away points lower. This weighting methodology is called 
@@ -47,4 +55,11 @@ same songs over and over and over again.
 Because of this issue, it's almost always better to either use an additive model with backfitting, or to just choose a different model
 in which distance is not used to measure 'closeness'.
 
+ADDITIVE MODELING
+One solution for the curse of dimensionality is to assume our model is an \textbf{additive model}, meaning it is of the form:
+$$ y = \beta_0 + \sum f_i(x_i) + \epsilon$$ 
+
+We can compress high dimensional data into a unidimensional form using the \textbf{backfitting algorithm}. The backfitting algorithm 
+allows you to use a very smart learner like kernel regression only in one dimension at a time (so long as you are running it under 
+the assumption that the target function is additive), which avoids some of the issues that come with high dimensionality.  
 "
